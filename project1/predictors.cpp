@@ -39,7 +39,6 @@ string always(int type, char* arg) {
         }
         count++;
     }
-
-    string str = to_string(correct) + "," + to_string(count) + ";";
-    return str;
+    
+    return (to_string(correct) + "," + to_string(count) + ";");
 }
