@@ -8,6 +8,7 @@ using namespace std;
 string always(int,char*);
 string bimodal1(int,char*);
 string bimodal2(int,char*);
+string gshare(int,char*);
 
 int main(int argc, char *argv[]) {
     if(argc != 3) {
@@ -37,7 +38,16 @@ int main(int argc, char *argv[]) {
     outfile << bimodal2(512,argv[1]) << " ";
     outfile << bimodal2(1024,argv[1]) << " ";
     outfile << bimodal2(2048,argv[1]) << endl;
-    // TODO Gshare - 9 variations
+    // Gshare - 9 variations
+    outfile << gshare(3,argv[1]) << " ";
+    outfile << gshare(4,argv[1]) << " ";
+    outfile << gshare(5,argv[1]) << " ";
+    outfile << gshare(6,argv[1]) << " ";
+    outfile << gshare(7,argv[1]) << " ";
+    outfile << gshare(8,argv[1]) << " ";
+    outfile << gshare(9,argv[1]) << " ";
+    outfile << gshare(10,argv[1]) << " ";
+    outfile << gshare(11,argv[1]) << endl;
     // TODO Tournament
 
     return 0;
@@ -121,6 +131,79 @@ string bimodal2(int tsize, char* arg) {
         } else if(behavior == "T") {
             if(tval == 2 || tval == 3) correct++;
             if(tval != 3) table[index]++;
+        }
+        count++;
+    }
+
+    return (to_string(correct) + "," + to_string(count) + ";");
+}
+
+// Implementation for Gshare Predictor
+unsigned int getMaxHistory(unsigned int bits) {
+    unsigned int result = 0;
+
+    switch(bits) {
+        case 3:
+            result = 0b00000000111;
+            break;
+        case 4:
+            result = 0b00000001111;
+            break;
+        case 5:
+            result = 0b00000011111;
+            break;
+        case 6:
+            result = 0b00000111111;
+            break;
+        case 7:
+            result = 0b00001111111;
+            break;
+        case 8:
+            result = 0b00011111111;
+            break;
+        case 9:
+            result = 0b00111111111;
+            break;
+        case 10:
+            result = 0b01111111111;
+            break;
+        case 11:
+            result = 0b11111111111;
+            break;
+        default:
+            fprintf(stderr, "Incorrect bit value.\n");
+            exit(EXIT_FAILURE);
+    }
+    return result;
+}
+
+
+string gshare(int bits, char* arg) {
+    ifstream infile(arg);
+    int table[2048];
+    string behavior, line;
+    unsigned int count, correct, history, mask;
+    unsigned long long addr;
+
+    count = 0, correct = 0, history = 0;
+    mask = getMaxHistory(bits);
+    for(int i = 0; i < 2048; i++) table[i] = 1;
+
+    while(getline(infile, line)) {
+        stringstream s(line);
+        s >> std::hex >> addr >> behavior;
+        int index = (addr % 2048) ^ (history & mask);
+        int tval = table[index];
+
+        if(behavior == "NT") {
+            if(tval == 0 || tval == 1) correct++;
+            if(tval > 0) table[index]--;
+            history <<= 1;
+        } else if(behavior == "T") {
+            if(tval == 2 || tval == 3) correct++;
+            if(tval < 3) table[index]++;
+            history <<= 1;
+            history |= 1;
         }
         count++;
     }
