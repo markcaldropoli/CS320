@@ -9,6 +9,7 @@ string always(int,char*);
 string bimodal1(int,char*);
 string bimodal2(int,char*);
 string gshare(int,char*);
+string tournament(char*);
 
 int main(int argc, char *argv[]) {
     if(argc != 3) {
@@ -48,7 +49,8 @@ int main(int argc, char *argv[]) {
     outfile << gshare(9,argv[1]) << " ";
     outfile << gshare(10,argv[1]) << " ";
     outfile << gshare(11,argv[1]) << endl;
-    // TODO Tournament
+    // Tournament
+    outfile << tournament(argv[1]) << endl;
 
     return 0;
 }
@@ -205,6 +207,84 @@ string gshare(int bits, char* arg) {
             history <<= 1;
             history |= 1;
         }
+        count++;
+    }
+
+    return (to_string(correct) + "," + to_string(count) + ";");
+}
+
+// Implementation of Tournament Predictor
+string tournament(char* arg) {
+    ifstream infile(arg);
+    int bimodalTable[2048];
+    int gshareTable[2048];
+    int selectorTable[2048];
+    string behavior, line;
+    unsigned int count, bcount, gcount, correct, history, mask;
+    unsigned long long addr;
+
+    count = 0, bcount = 0, gcount = 0, correct = 0, history = 0;
+    mask = 0b11111111111;
+    for(int i = 0; i < 2048; i++) {
+        bimodalTable[i] = 1;
+        gshareTable[i] = 1;
+        selectorTable[i] = 2;
+    }
+
+    while(getline(infile, line)) {
+        stringstream s(line);
+        s >> std::hex >> addr >> behavior;
+        int bsIndex = addr % 2048;
+        int gIndex = bsIndex ^ (history & mask);
+        int bval = bimodalTable[bsIndex];
+        int gval = gshareTable[gIndex];
+        int sval = selectorTable[bsIndex];
+
+        // bimodal
+        if(behavior == "NT") {
+            if(bval == 0 || bval == 1) bcount = 1;
+            if(bval != 0) bimodalTable[bsIndex]--;
+        } else if(behavior == "T") {
+            if(bval == 2 || bval == 3) bcount = 1;
+            if(bval != 3) bimodalTable[bsIndex]++;
+        }
+
+        // gshare
+        if(behavior == "NT") {
+            if(gval == 0 || gval == 1) gcount = 1;
+            if(gval > 0) gshareTable[gIndex]--;
+            history <<= 1;
+        } else if(behavior == "T") {
+            if(gval == 2 || gval == 3) gcount = 1;
+            if(gval < 3) gshareTable[gIndex]++;
+            history <<= 1;
+            history |= 1;
+        }
+
+        switch(sval) {
+            case 0:
+                if((bcount == 1 && gcount == 1) || (bcount == 0 && gcount == 1)) correct++;
+                if(bcount == 1 && gcount == 0) selectorTable[bsIndex] = 1;
+                break;
+            case 1:
+                if((bcount == 1 && gcount == 1) || (bcount == 0 && gcount == 1)) correct++;
+                if(bcount == 0 && gcount == 1) selectorTable[bsIndex] = 0;
+                if(bcount == 1 && gcount == 0) selectorTable[bsIndex] = 2;
+                break;
+            case 2:
+                if((bcount == 1 && gcount == 1) || (bcount == 1 && gcount == 0)) correct++;
+                if(bcount == 0 && gcount == 1) selectorTable[bsIndex] = 1;
+                if(bcount == 1 && gcount == 0) selectorTable[bsIndex] = 3;
+                break;
+            case 3:
+                if((bcount == 1 && gcount == 1) || (bcount == 1 && gcount == 0)) correct++;
+                if(bcount == 0 && gcount == 1) selectorTable[bsIndex] = 2;
+                break;
+            default:
+                fprintf(stderr, "Invalid selector state.\n");
+                exit(EXIT_FAILURE);
+        }
+        bcount = 0, gcount = 0;
         count++;
     }
 
