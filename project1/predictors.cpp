@@ -1,7 +1,9 @@
+#include <algorithm>
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <vector>
 
 using namespace std;
 
@@ -10,6 +12,7 @@ string bimodal1(int,char*);
 string bimodal2(int,char*);
 string gshare(int,char*);
 string tournament(char*);
+string perceptron(int,int,char*);
 
 int main(int argc, char *argv[]) {
     if(argc != 3) {
@@ -52,15 +55,22 @@ int main(int argc, char *argv[]) {
     // Tournament
     outfile << tournament(argv[1]) << endl;
 
+    /**
+     * This line is for the extra credit perceptron predictor.
+     * Do not uncomment this when grading the assignment.
+     **/
+    // Perceptron - Extra Credit
+    //outfile << perceptron(2048,11,argv[1]) << endl;
+
     return 0;
 }
 
 // Implementation for Always Taken & Always Non-Taken
 string always(int type, char* arg) {
     ifstream infile(arg);
+    string behavior, line;
     unsigned int count, correct;
     unsigned long long addr;
-    string behavior, line;
 
     count = 0, correct = 0;
     while(getline(infile, line)) {
@@ -83,10 +93,10 @@ string always(int type, char* arg) {
 // Implementation for 1-bit Bimodal Predictor
 string bimodal1(int tsize, char* arg) {
     ifstream infile(arg);
+    int table[tsize];
+    string behavior, line;
     unsigned int count, correct;
     unsigned long long addr;
-    string behavior, line;
-    int table[tsize];
     
     count = 0, correct = 0;
     for(int i = 0; i < tsize; i++) table[i] = 0;
@@ -113,10 +123,10 @@ string bimodal1(int tsize, char* arg) {
 // Implementation for 2-bit Bimodal Predictor
 string bimodal2(int tsize, char* arg) {
     ifstream infile(arg);
+    int table[tsize];
+    string behavior, line;
     unsigned int count, correct;
     unsigned long long addr;
-    string behavior, line;
-    int table[tsize];
 
     count = 0, correct = 0;
     for(int i = 0; i < tsize; i++) table[i] = 1;
@@ -285,6 +295,70 @@ string tournament(char* arg) {
                 exit(EXIT_FAILURE);
         }
         bcount = 0, gcount = 0;
+        count++;
+    }
+
+    return (to_string(correct) + "," + to_string(count) + ";");
+}
+
+/**
+ * Perceptron Predictor - Extra Credit
+ * Based on: https://www.cs.utexas.edu/~lin/papers/hpca01.pdf
+ **/
+string perceptron(int tsize, int bits, char* arg) {
+    ifstream infile(arg);
+    int bias[tsize];
+    int t, y; // t = -1 if NT, 1 if T; y = perceptron output
+    string behavior, line;
+    unsigned int count, correct;
+    unsigned long long addr;
+    vector<int> ghistory;
+    vector<int> weights;
+    vector<vector<int>> ptable;
+
+    int theta = 1.93*bits + 14; // theta = threshold
+    /**
+     * This is because adding another weight to a perceptron
+     * increases its average output by some constant, so the
+     * threshold must be increased by a constant, yielding a
+     * linear relationship between history length and threshold
+     **/
+
+    // initialization
+    count = 0, correct = 0, y = 0;
+    bias[0] = 1; //x0 is always set to 1, providing a “bias” input
+    for(int i = 1; i < tsize; i++) bias[i] = -1;
+    for(int i = 0; i < bits; i++) weights.push_back(0);
+    ghistory.push_back(1);
+    for(int i = 1; i < bits; i++) ghistory.push_back(-1);
+    for(int i = 0; i < tsize; i++) ptable.push_back(weights);
+
+    while(getline(infile, line)) {
+        stringstream s(line);
+        s >> std::hex >> addr >> behavior;
+        int index = addr % tsize;
+        vector<int> perceptron = ptable[index];
+        y = bias[index];
+
+        for(int i = 1; i < bits; i++) y += (ghistory[i]*perceptron[i]);
+
+        if((y >= 0 && behavior == "T") || (y < 0 && behavior == "NT")) correct++;
+
+        if(behavior == "NT") t = -1;
+        else if(behavior == "T") t = 1;
+
+        if(((y >= 0 && t == -1) || (y < 0 && t == 1)) || (abs(y) <= theta)) {
+            bias[index] += t;
+
+            for(int i = 1; i < bits; i++) {
+                if(t == ghistory[i]) perceptron[i]++;
+                else perceptron[i]--;
+            }
+        }
+
+        std::rotate(ghistory.begin(), ghistory.begin()+ghistory.size()-1, ghistory.end());
+        ghistory[0] = t;
+
         count++;
     }
 
