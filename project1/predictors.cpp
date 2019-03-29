@@ -340,13 +340,17 @@ string perceptron(int tsize, int bits, char* arg) {
         vector<int> perceptron = ptable[index];
         y = bias[index];
 
+        // dot product of perceptron and global history register
         for(int i = 1; i < bits; i++) y += (ghistory[i]*perceptron[i]);
 
+        // NT when y is negative, T otherwise
         if((y >= 0 && behavior == "T") || (y < 0 && behavior == "NT")) correct++;
 
+        // set value of t
         if(behavior == "NT") t = -1;
         else if(behavior == "T") t = 1;
 
+        // training algorithm
         if(((y >= 0 && t == -1) || (y < 0 && t == 1)) || (abs(y) <= theta)) {
             bias[index] += t;
 
@@ -356,6 +360,7 @@ string perceptron(int tsize, int bits, char* arg) {
             }
         }
 
+        // write back to ith entry
         std::rotate(ghistory.begin(), ghistory.begin()+ghistory.size()-1, ghistory.end());
         ghistory[0] = t;
 
