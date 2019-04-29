@@ -1,3 +1,16 @@
 Mark Caldropoli
 mcaldro1
 B00571305
+
+For the extra credit, I designed a least
+frequently used (LFU) replacement policy.
+To run the extra credit, change the 0 to a 1
+at the bottom of the main method where the
+extra credit function is called.
+This policy printed results that were
+more efficient than both LRU replacement
+and the next-line prefetcher when run on
+the provided traces (1-3). I used vectors to
+track the frequency of tags. For replacement,
+the function chooses the tag with the lowest
+frequency, hence the name of the policy.

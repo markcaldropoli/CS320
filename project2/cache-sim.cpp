@@ -4,6 +4,7 @@
 #include <string>
 #include <string.h>
 #include <utility>
+#include <vector>
 
 using namespace std;
 
@@ -15,6 +16,7 @@ string fullyAssociativeHC(char*);
 string setAssociativeNoAlloc(int, char*);
 string setAssociativePrefetch(int, char*);
 string setAssociativeCMPrefetch(int, char*);
+string extraCreditLFU(int, char*);
 
 int main(int argc, char *argv[]) {
     if(argc != 3) {
@@ -59,6 +61,14 @@ int main(int argc, char *argv[]) {
     outfile << setAssociativeCMPrefetch(4,argv[1]) << " ";
     outfile << setAssociativeCMPrefetch(8,argv[1]) << " ";
     outfile << setAssociativeCMPrefetch(16,argv[1]) << endl;
+
+    // Extra Credit LFU
+#if 0 // Set this to 1 to run extra credit
+    outfile << extraCreditLFU(2,argv[1]) << " ";
+    outfile << extraCreditLFU(4,argv[1]) << " ";
+    outfile << extraCreditLFU(8,argv[1]) << " ";
+    outfile << extraCreditLFU(16,argv[1]) << endl;
+#endif
 
     return 0;
 }
@@ -511,6 +521,102 @@ string setAssociativeCMPrefetch(int size, char* arg) {
 
                 lru[index2][way] = ++timer;
                 cache[index2][way] = 32 * ((addr/32) + 1);
+            }
+        }
+
+        accesses++;
+    }
+
+    return (to_string(hits) + "," + to_string(accesses) + ";");
+}
+
+string extraCreditLFU(int size, char* arg) {
+    ifstream infile(arg);
+    string instr, line;
+    unsigned int accesses, hits;
+    unsigned int addr;
+
+    int rows = 16*32 / size;
+    int cache[rows][size];
+    vector<int> tags; // store tags
+    vector<int> freq; // store frequencies
+
+    // initialize array with zeroes
+    for(int i = 0; i < rows; i++) {
+        for(int j = 0; j < size; j++) {
+            cache[i][j] = 0;
+        }
+    }
+
+    // initialize variables
+    accesses = 0, hits = 0;
+
+    // parse input trace
+    while(getline(infile, line)) {
+        stringstream s(line);
+        // instr = "L" or "S", addr = tag (in hex)
+        s >> instr >> std::hex >> addr;
+        int index = (addr/32) % rows;
+
+        bool hit = false;
+        for(int i = 0; i < size; i++) {
+            if(cache[index][i] == 32 * (addr/32)) {
+                hits++;
+                hit = true;
+
+                // update freq if tag is present
+                for(int j = 0; j < tags.size(); j++) {
+                    if(tags[j] == 32 * (addr/32)) {
+                        freq[j]++;
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+
+        // if tag not present, need to replace
+        if(!hit) {
+            int freq2[size];
+
+            for(int i = 0; i < size; i++) freq2[i] = 0;
+
+            // populate temporary freq array from vector
+            for(int i = 0; i < tags.size(); i++) {
+                for(int j = 0; j < size; j++) {
+                    if(tags[i] == cache[index][j]) {
+                        freq2[j] = freq[i];
+                    }
+                }
+            }
+
+            int max = 0;
+            int max_val = cache[index][0];
+
+            // obtain the smallest frequency
+            for(int i = 0; i < size; i++) {
+                if(freq2[i] < max_val) {
+                    max = i;
+                    max_val = freq2[i];
+                }
+            }
+
+            // replace smallest frequency
+            cache[index][max] = 32 * (addr/32);
+
+            // check if tag is present
+            bool hit = false;
+            for(int i = 0; i < tags.size(); i++) {
+                if(tags[i] == 32 * (addr/32)) {
+                    hit = true;
+                    break;
+                }
+            }
+
+            // if not present, update frequency
+            if(!hit) {
+                tags.push_back(32 * (addr/32));
+                freq.push_back(1);
             }
         }
 
